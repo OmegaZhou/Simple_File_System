@@ -124,32 +124,52 @@ int get_item_num(FILE_HEADER* header)
 	return (header->used_size - header->name_len - 1 - sizeof(FILE_HEADER)) / ID_SIZE;
 }
 
-int check_file_name(int father_id, char* name)
+
+int check_file_exist(int father_id, char* name, int* get_id)
 {
-	char item_name[SECTOR_SIZE];
 	char info[SECTOR_SIZE];
-	int id = father_id;
-	while (id != -1) {
-		get_data(FILE_SECTOR(id), 1, info);
+	char temp[SECTOR_SIZE];
+	int flag = 1;
+	if (strcmp(name, ".")==0 || strcmp(name, "..")==0) {
+		return 1;
+	}
+	while (father_id != -1 && flag) {
+		get_data(FILE_SECTOR(father_id), 1, info);
 		FILE_HEADER* header = (FILE_HEADER*)info;
-		char* temp = NAME_START_LOC(info);
+		int* item_id = (int*)DATA_START_LOC(info, header->name_len);
 		int num = get_item_num(header);
-		int* data = (int*)DATA_START_LOC(info, header->name_len);
 		for (int i = 0; i < num; ++i) {
-			get_file_name(data[i], item_name);
-			if (strcmp(item_name, name) == 0) {
-				return 0;
+			get_file_name(item_id[i], temp);
+			if (strcmp(name, temp) == 0) {
+				flag = 0;
+				*get_id = item_id[i];
+				return 1;
 			}
 		}
-		id = header->next_id;
+		father_id = header->next_id;
 	}
-	return 1;
+	return 0;
+}
+
+int check_file_name(int father_id, char* name)
+{
+	int i;
+	return check_file_exist(father_id, name, &i);
 }
 
 
+
+void get_header(FILE_HEADER* i,int id)
+{
+	char info[SECTOR_SIZE];
+	get_data(FILE_SECTOR(id), 1, info);
+	FILE_HEADER* header = (FILE_HEADER*)info;
+	*i = *header;
+}
+
 int create_file(int type, int father_id, char* name)
 {
-	if (father_id != -1 && (!check_file_name(father_id, name))) {
+	if (father_id != -1 && (check_file_name(father_id, name))) {
 		return 0;
 	}
 	FILE_HEADER file_header;
@@ -167,10 +187,43 @@ void print_file_name(int id)
 {
 	char info[SECTOR_SIZE];
 	get_data(FILE_SECTOR(id), 1, info);
-	char* name = NAME_START_LOC(info);;
+	char* name = NAME_START_LOC(info);
 	FILE_HEADER* header = (FILE_HEADER*)info;
 	if (header->type == DIR_TYPE) {
-		printf("%/");
+		printf("/");
 	}
 	printf("%s", name);
+}
+
+void get_dir_trace(int id)
+{
+	char info[SECTOR_SIZE];
+	get_data(FILE_SECTOR(id), 1, info);
+	char* name = NAME_START_LOC(info);;
+	FILE_HEADER* header = (FILE_HEADER*)info;
+	if (header->father_id != -1) {
+		get_dir_trace(header->father_id);
+	}
+	if (header->father_id != ROOT_ID) {
+		printf("/");
+	}
+	printf("%s", name);
+}
+
+int divide_dir_para(char* info,char** para)
+{
+	int flag = 1;
+	int size = 0;
+	for (int i = 0; info[i] != '\0'; ++i) {
+		if (info[i] == '/') {
+			flag = 1;
+			info[i] = '\0';
+			continue;
+		}
+		if (flag) {
+			para[size++] = &info[i];
+			flag = 0;
+		}
+	}
+	return size;
 }

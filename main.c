@@ -1,7 +1,7 @@
 #include <stdio.h>
-void test();
+#include "shell.h"
 int main()
 {
-	test();
+	init_shell();
 	return 0;
 }
