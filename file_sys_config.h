@@ -1,5 +1,5 @@
-#ifndef FILE_SYS_
-#define FILE_SYS_
+#ifndef FILE_SYS_CONFIG_H_
+#define FILE_SYS_CONFIG_H_
 #include "disk.h"
 #define DIR_TYPE 1
 #define FILE_TYPE 0
@@ -15,6 +15,7 @@
 
 #define ID_SIZE (sizeof(int))
 
+
 typedef struct File_Header
 {
 	int type;
@@ -23,14 +24,12 @@ typedef struct File_Header
 	int last_id;
 	int next_id;
 	int name_len;
-	int used_size; 
+	int used_size;
 }FILE_HEADER;
 
+#define NAME_START_LOC(info) ((info)+sizeof(FILE_HEADER))
+#define DATA_START_LOC(info,len) (NAME_START_LOC(info)+(len)+1)
 
-
-
-int init_file_sys(int argc, char* argv[]);
-
-#endif // !FILE_SYS_TYPE_
+#endif // !FILE_SYS_CONFIG_H_
 
 

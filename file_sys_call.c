@@ -1,10 +1,10 @@
-#include "file_sys.h"
+#include "file_sys_config.h"
 #include "disk.h"
 #include <stdio.h>
 #include <string.h>
 int now_dir_id = ROOT_ID;
 
-static void clear_bitgraph()
+void clear_bitgraph()
 {
 	char info[SECTOR_SIZE] = { 0 };
 	for (int i = 0; i < BITGRAPH_SECTOR_NUM; ++i) {
@@ -13,7 +13,7 @@ static void clear_bitgraph()
 }
 
 //Return the id is relative to file sectors.
-static int get_free_sector()
+int get_free_sector()
 {
 	char info[SECTOR_SIZE] = { 0 };
 	for (int i = 0; i < BITGRAPH_SECTOR_NUM; ++i) {
@@ -30,7 +30,7 @@ static int get_free_sector()
 }
 
 //file_section_id is relative to file sectors
-static void use_sector(int file_section_id)
+void use_sector(int file_section_id)
 {
 	int k = file_section_id % 8;
 	file_section_id /= 8;
@@ -42,13 +42,13 @@ static void use_sector(int file_section_id)
 	save_data(i, 1, info);
 }
 
-static void clear_file_sector(int id)
+void clear_file_sector(int id)
 {
 	char info[SECTOR_SIZE] = { 0 };
 	save_data(FILE_SECTOR(id), 1, info);
 }
 
-static int add_file_sector(int type, int father_id, int last_id, char *name,FILE_HEADER* file_header)
+int add_file_sector(int type, int father_id, int last_id, char *name, FILE_HEADER* file_header)
 {
 	int len = strlen(name);
 	int id = get_free_sector();
@@ -84,89 +84,93 @@ static int add_file_sector(int type, int father_id, int last_id, char *name,FILE
 	return id;
 }
 
-static void add_item(int father_id, int son_id)
+void add_item(int father_id, int son_id)
 {
 	char info[SECTOR_SIZE];
 	get_data(FILE_SECTOR(father_id), 1, info);
 	FILE_HEADER* header = (FILE_HEADER*)info;
 	while (header->used_size + ID_SIZE > SECTOR_SIZE) {
-		if (header->next_id!=-1) {
-			get_data(FILE_SECTOR(header->next_id), 1, info);	
+		if (header->next_id != -1) {
+			get_data(FILE_SECTOR(header->next_id), 1, info);
 		} else {
 			int id = add_file_sector(header->type, header->father_id, header->now_id, header + 1, header);
 			get_data(FILE_SECTOR(id), 1, info);
 		}
 		header = (FILE_HEADER*)info;
 	}
-	
+
 	int* data = (int*)(info + header->used_size);
 	*data = son_id;
 	header->used_size += ID_SIZE;
 	save_data(FILE_SECTOR(header->now_id), 1, info);
 }
 
-static void create_file(int type,int father_id,char* name)
+void get_file_name(int father_id, char* name)
 {
-	
-	FILE_HEADER file_header;
-	int id=add_file_sector(type, father_id, -1, name, &file_header);
-	if (father_id != -1) {
-		add_item(father_id, id);
-		
+	char info[SECTOR_SIZE];
+	get_data(FILE_SECTOR(father_id), 1, info);
+	FILE_HEADER* header = (FILE_HEADER*)info;
+	char* temp = NAME_START_LOC(info);
+	while (*temp != '\0') {
+		*name = *temp;
+		++temp;
+		++name;
 	}
+	*name = '\0';
 }
 
-static int get_item_num(FILE_HEADER* header)
+int get_item_num(FILE_HEADER* header)
 {
 	return (header->used_size - header->name_len - 1 - sizeof(FILE_HEADER)) / ID_SIZE;
 }
 
-static void print_file_name(int id)
+int check_file_name(int father_id, char* name)
+{
+	char item_name[SECTOR_SIZE];
+	char info[SECTOR_SIZE];
+	int id = father_id;
+	while (id != -1) {
+		get_data(FILE_SECTOR(id), 1, info);
+		FILE_HEADER* header = (FILE_HEADER*)info;
+		char* temp = NAME_START_LOC(info);
+		int num = get_item_num(header);
+		int* data = (int*)DATA_START_LOC(info, header->name_len);
+		for (int i = 0; i < num; ++i) {
+			get_file_name(data[i], item_name);
+			if (strcmp(item_name, name) == 0) {
+				return 0;
+			}
+		}
+		id = header->next_id;
+	}
+	return 1;
+}
+
+
+int create_file(int type, int father_id, char* name)
+{
+	if (father_id != -1 && (!check_file_name(father_id, name))) {
+		return 0;
+	}
+	FILE_HEADER file_header;
+	int id = add_file_sector(type, father_id, -1, name, &file_header);
+	if (father_id != -1) {
+		add_item(father_id, id);
+
+	}
+	return 1;
+}
+
+
+
+void print_file_name(int id)
 {
 	char info[SECTOR_SIZE];
 	get_data(FILE_SECTOR(id), 1, info);
-	char* name = info + sizeof(FILE_HEADER);
+	char* name = NAME_START_LOC(info);;
 	FILE_HEADER* header = (FILE_HEADER*)info;
 	if (header->type == DIR_TYPE) {
 		printf("%/");
 	}
-	printf("%s ", name);
-}
-
-int ls(int argc, char* argv[])
-{
-	char info[SECTOR_SIZE];
-	int id = now_dir_id;
-	while (id!=-1) {
-		get_data(FILE_SECTOR(id), 1, info);
-		FILE_HEADER* header = (FILE_HEADER*)info;
-		int* item_id = (int*)(info + sizeof(FILE_HEADER) + header->name_len + 1);
-		int num = get_item_num(header);
-		for (int i = 0; i < num; ++i) {
-			print_file_name(item_id[i]);
-		}
-		id = header->next_id;
-	}
-	printf("\n");
-	return 0;
-}
-
-int init_file_sys(int argc, char* argv[])
-{
-	clear_file_sector(FILE_SECTOR(ROOT_ID));
-	clear_bitgraph();
-	create_file(DIR_TYPE, -1, "");
-	return 0;
-}
-
-void test()
-{
-	init_file_sys(1,NULL);
-	for (int i = 0; i < 25; ++i) {
-		char k[2] = "a";
-		k[0] = 'a' + i;
-		create_file(DIR_TYPE, 0, k);
-	}
-	create_file(DIR_TYPE, 0, "Zhou");
-	ls(0, NULL);
+	printf("%s", name);
 }
