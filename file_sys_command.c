@@ -6,22 +6,48 @@ int ls(int argc, char* argv[])
 	char info[SECTOR_SIZE];
 	int temp = now_dir_id;
 	if (argc > 1) {
-		cd(argc, argv);
-	}
-	int id = now_dir_id;
-	while (id != -1) {
-		get_data(FILE_SECTOR(id), 1, info);
-		FILE_HEADER* header = (FILE_HEADER*)info;
-		int* item_id = (int*)DATA_START_LOC(info,header->name_len);
-		int num = get_item_num(header);
-		for (int i = 0; i < num; ++i) {
-			print_file_name(item_id[i]);
-			printf(" ");
+		for (int j = 1; j < argc; ++j) {
+			if (argc > 2) {
+				printf("%s:   ", argv[j]);
+			}
+			int status=jump_to(argv[j]);
+			if (status == 2) {
+				printf("ls: cannot access \'%s\' : No such file or directory\n", argv[j]);
+			} else if (status == 1) {
+				printf("%s", argv[j]);
+			} else {
+				int id = now_dir_id;
+				while (id != -1) {
+					get_data(FILE_SECTOR(id), 1, info);
+					FILE_HEADER* header = (FILE_HEADER*)info;
+					int* item_id = (int*)DATA_START_LOC(info, header->name_len);
+					int num = get_item_num(header);
+					for (int i = 0; i < num; ++i) {
+						print_file_name(item_id[i]);
+						printf(" ");
+					}
+					id = header->next_id;
+				}
+				printf("\n");
+			}
+			now_dir_id = temp;
 		}
-		id = header->next_id;
+	} else {
+		int id = now_dir_id;
+		while (id != -1) {
+			get_data(FILE_SECTOR(id), 1, info);
+			FILE_HEADER* header = (FILE_HEADER*)info;
+			int* item_id = (int*)DATA_START_LOC(info, header->name_len);
+			int num = get_item_num(header);
+			for (int i = 0; i < num; ++i) {
+				print_file_name(item_id[i]);
+				printf(" ");
+			}
+			id = header->next_id;
+		}
+		printf("\n");
 	}
-	printf("\n");
-	now_dir_id = temp;
+	
 	return 0;
 }
 
@@ -42,28 +68,40 @@ int pwd(int argc, char* argv[])
 
 int mkdir(int argc, char* argv[])
 {
+	int temp = now_dir_id;
 	for (int i = 1; i < argc; ++i) {
-		char* para = argv[i];
-		int flag = 1;
-		for (int j = 0; argv[1][j] != '\0';++j) {
-			if (argv[1][j] == '/') {
-				if (j == 0) {
-					++para;
-				} else if (argv[1][j + 1] == '\0') {
-					argv[1][j] = '\0';
-				} else {
-					printf("mkdir: cannot create directory \'%s\': File name can't include\'/\'\n", argv[i]);
-					flag = 0;
-					break;
-				}
+		int c = -1;
+		int size = strlen(argv[i]);
+		for (int j = size - 1; j >= 0; --j) {
+			if (argv[i][j] == '/') {
+				argv[i][j] = '\0';
+				c = j;
+				break;
 			}
 		}
-		if (flag == 0) {
-			continue;
+		if (c != -1) {
+			int flag=jump_to(argv[i]);
+			if (flag == 1) {
+				if (c != -1) {
+					argv[i][c] = '/';
+				}
+				printf("mkdir: %s: Not a directory\n", argv[i]);
+				continue;
+			} else if (flag == 2) {
+				if (c != -1) {
+					argv[i][c] = '/';
+				}
+				printf("mkdir: %s: No such file or directory\n", argv[i]);
+				continue;
+			}
 		}
-		if (!create_file(DIR_TYPE, now_dir_id, argv[i])) {
+		if (!create_file(DIR_TYPE, now_dir_id, &argv[i][c + 1])) {
+			if (c!=-1) {
+				argv[i][c] = '/';
+			}
 			printf("mkdir: cannot create directory \'%s\': File exists\n",argv[i]);
 		}
+		now_dir_id = temp;
 	}
 	return 0;
 }
@@ -74,43 +112,11 @@ int cd(int argc, char* argv[])
 		now_dir_id = ROOT_ID;
 		return 0;
 	}
-	char info[SECTOR_SIZE];
-	char name[SECTOR_SIZE];
-	int temp_id = now_dir_id;
-	int id = now_dir_id;
-	
-	char* para[SECTOR_SIZE];
-	int  size = divide_dir_para(argv[1], para);
-	
-
-	for (int j = 0; j < size; ++j) {
-		id = now_dir_id;
-		FILE_HEADER header;
-		get_header(&header, id);
-		if (strcmp(para[j], ".")==0) {
-			continue;
-		}
-		if (strcmp(para[j], "..") == 0) {
-			if (header.father_id != -1) {
-				now_dir_id = header.father_id;
-				continue;
-			}
-		}
-		int get_id;
-		if (check_file_exist(id, para[j],&get_id)) {
-			FILE_HEADER temp;
-			get_header(&temp, get_id);
-			if (temp.type != DIR_TYPE) {
-				printf("cd: %s: Not a directory\n", para[j]);
-				now_dir_id = temp_id;
-				break;
-			}
-			now_dir_id = get_id;
-		} else {
-			printf("cd: %s: No such file or directory\n", para[j]);
-			now_dir_id = temp_id;
-			break;
-		}
+	int flag = jump_to(argv[1]);
+	if (flag == 1) {
+		printf("cd: %s: Not a directory\n", argv[1]);
+	} else if (flag == 2) {
+		printf("cd: %s: No such file or directory\n", argv[1]);
 	}
 	return 0;
 }

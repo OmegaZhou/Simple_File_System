@@ -18,6 +18,7 @@ void get_file_name(int id, char* name);
 int check_file_exist(int father_id, char* name,int* get_id);
 int divide_dir_para(char* info, char** para);
 void get_header(FILE_HEADER* i, int id);
+int jump_to(char* location);
 extern int now_dir_id;
 #endif // !FILE_SYS_CALL_H_
 

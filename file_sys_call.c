@@ -130,6 +130,10 @@ int check_file_exist(int father_id, char* name, int* get_id)
 	char info[SECTOR_SIZE];
 	char temp[SECTOR_SIZE];
 	int flag = 1;
+	if (strcmp(name, "") == 0) {
+		*get_id = ROOT_ID;
+		return 1;
+	}
 	if (strcmp(name, ".")==0 || strcmp(name, "..")==0) {
 		return 1;
 	}
@@ -212,8 +216,9 @@ void get_dir_trace(int id)
 
 int divide_dir_para(char* info,char** para)
 {
-	int flag = 1;
+	int flag = 0;
 	int size = 0;
+	para[size++] = info;
 	for (int i = 0; info[i] != '\0'; ++i) {
 		if (info[i] == '/') {
 			flag = 1;
@@ -226,4 +231,49 @@ int divide_dir_para(char* info,char** para)
 		}
 	}
 	return size;
+}
+
+int jump_to(char* location)
+{
+	char copy[SECTOR_SIZE] = { 0 };
+	char info[SECTOR_SIZE];
+	char name[SECTOR_SIZE];
+	int temp_id = now_dir_id;
+	int id = now_dir_id;
+
+	char* para[SECTOR_SIZE];
+	for (int i = 0; location[i] != '\0'; ++i) {
+		copy[i] = location[i];
+	}
+	int  size = divide_dir_para(copy, para);
+
+
+	for (int j = 0; j < size; ++j) {
+		id = now_dir_id;
+		FILE_HEADER header;
+		get_header(&header, id);
+		if (strcmp(para[j], ".") == 0) {
+			continue;
+		}
+		if (strcmp(para[j], "..") == 0) {
+			if (header.father_id != -1) {
+				now_dir_id = header.father_id;
+				continue;
+			}
+		}
+		int get_id;
+		if (check_file_exist(id, para[j], &get_id)) {
+			FILE_HEADER temp;
+			get_header(&temp, get_id);
+			if (temp.type != DIR_TYPE) {
+				now_dir_id = temp_id;
+				return 1;
+			}
+			now_dir_id = get_id;
+		} else {
+			now_dir_id = temp_id;
+			return 2;
+		}
+	}
+	return 0;
 }
