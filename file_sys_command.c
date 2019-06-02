@@ -75,8 +75,11 @@ int mkdir(int argc, char* argv[])
 		for (int j = size - 1; j >= 0; --j) {
 			if (argv[i][j] == '/') {
 				argv[i][j] = '\0';
-				c = j;
-				break;
+				if (j != size - 1) {
+					c = j;
+					break;
+				}
+
 			}
 		}
 		if (c != -1) {
@@ -117,6 +120,62 @@ int cd(int argc, char* argv[])
 		printf("cd: %s: Not a directory\n", argv[1]);
 	} else if (flag == 2) {
 		printf("cd: %s: No such file or directory\n", argv[1]);
+	}
+	return 0;
+}
+
+int rm(int argc, char* argv[])
+{
+	if (argc <= 1) {
+		return 0;
+	}
+	int temp = now_dir_id;
+	for (int i = 1; i < argc; ++i) {
+		int c = -1;
+		int size = strlen(argv[i]);
+		for (int j = size - 1; j >= 0; --j) {
+			if (argv[i][j] == '/') {
+				argv[i][j] = '\0';
+				if (j != size - 1) {
+					c = j;
+					break;
+				}
+
+			}
+		}
+		if (c != -1) {
+			int flag = jump_to(argv[i]);
+			if (flag == 1) {
+				if (c != -1) {
+					argv[i][c] = '/';
+				}
+				printf("rm: %s: Not a directory\n", argv[i]);
+				continue;
+			} else if (flag == 2) {
+				if (c != -1) {
+					argv[i][c] = '/';
+				}
+				printf("rm: %s: No such file or directory\n", argv[i]);
+				continue;
+			}
+		}
+		if (strcmp(&argv[i][c + 1], ".") == 0 || strcmp(&argv[i][c + 1], "..") == 0) {
+			printf("rm: refusing to remove '.' or '..'\n");
+		} else {
+			int id = -1;
+			check_file_exist(now_dir_id, &argv[i][c + 1], &id);
+			if (id == -1) {
+				printf("rm: %s: No such file or directory\n", &argv[i][c + 1]);
+			} else {
+				if (check_remove_id(id,temp)) {
+					remove_file(id);
+				} else {
+					printf("rm: Can't remove it\n");
+				}
+				
+			}
+		}
+		now_dir_id = temp;
 	}
 	return 0;
 }

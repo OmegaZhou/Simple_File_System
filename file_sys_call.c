@@ -41,7 +41,17 @@ void use_sector(int file_section_id)
 	info[j] |= (1 << k);
 	save_data(i, 1, info);
 }
-
+void unuse_sector(int file_section_id)
+{
+	int k = file_section_id % 8;
+	file_section_id /= 8;
+	int j = file_section_id % SECTOR_SIZE;
+	int i = file_section_id / SECTOR_SIZE + BITGRAPH_START_SECTOR;
+	char info[SECTOR_SIZE] = { 0 };
+	get_data(i, 1, info);
+	info[j] &= ~(1 << k);
+	save_data(i, 1, info);
+}
 void clear_file_sector(int id)
 {
 	char info[SECTOR_SIZE] = { 0 };
@@ -276,4 +286,62 @@ int jump_to(char* location)
 		}
 	}
 	return 0;
+}
+
+void remove_from_father(int file_id)
+{
+	char info[SECTOR_SIZE];
+	get_data(FILE_SECTOR(file_id), 1, info);
+	FILE_HEADER* header = (FILE_HEADER*)info;
+	int id = header->father_id;
+	while (id != -1) {
+		get_data(FILE_SECTOR(id), 1, info);
+		header = (FILE_HEADER*)info;
+		int* item_id = (int*)DATA_START_LOC(info, header->name_len);
+		int num = get_item_num(header);
+		for (int i = 0; i < num; ++i) {
+			if (file_id == item_id[i]) {
+				int* temp = (int*)(info + header->used_size);
+				--temp;
+				item_id[i] = *temp;
+				header->used_size -= ID_SIZE;
+				save_data(FILE_SECTOR(id), 1, info);
+				return;
+			}
+		}
+	}
+}
+
+void remove_file(int start_id)
+{
+	char info[SECTOR_SIZE];
+	int id = start_id;
+	remove_from_father(id);
+	while (id != -1) {
+		get_data(FILE_SECTOR(id), 1, info);
+		FILE_HEADER* header = (FILE_HEADER*)info;
+		if (header->type = DIR_TYPE) {
+			int* item_id = (int*)DATA_START_LOC(info, header->name_len);
+			int num = get_item_num(header);
+			for (int i = 0; i < num; ++i) {
+				remove_file(item_id[i]);
+			}
+		}
+		unuse_sector(id);
+		id = header->next_id;
+	}
+}
+int check_remove_id(int rm_id,int now_id)
+{
+	int temp = now_id;
+	char info[SECTOR_SIZE];
+	while (temp != 0) {
+		if (temp == rm_id) {
+			return 0;
+		}
+		get_data(FILE_SECTOR(temp), 1, info);
+		FILE_HEADER* header = (FILE_HEADER*)info;
+		temp = header->father_id;
+	}
+	return 1;
 }

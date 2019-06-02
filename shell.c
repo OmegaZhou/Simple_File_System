@@ -9,7 +9,7 @@ struct Command
 	char name[MAX_NAME_SIZE];
 	main_func func;
 };
-struct Command command_table[] = { {"ls",ls},{"pwd",pwd },{"mkfs",mkfs},{"mkdir",mkdir},{"cd",cd} };
+struct Command command_table[] = { {"ls",ls},{"pwd",pwd },{"mkfs",mkfs},{"mkdir",mkdir},{"cd",cd},{"rm",rm} };
 void get_command()
 {
 	static char command[512] = { 0 };
