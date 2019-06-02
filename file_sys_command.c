@@ -10,7 +10,7 @@ int ls(int argc, char* argv[])
 			if (argc > 2) {
 				printf("%s:   ", argv[j]);
 			}
-			int status=jump_to(argv[j]);
+			int status = jump_to(argv[j]);
 			if (status == 2) {
 				printf("ls: cannot access \'%s\' : No such file or directory\n", argv[j]);
 			} else if (status == 1) {
@@ -47,7 +47,7 @@ int ls(int argc, char* argv[])
 		}
 		printf("\n");
 	}
-	
+
 	return 0;
 }
 
@@ -83,7 +83,7 @@ int mkdir(int argc, char* argv[])
 			}
 		}
 		if (c != -1) {
-			int flag=jump_to(argv[i]);
+			int flag = jump_to(argv[i]);
 			if (flag == 1) {
 				if (c != -1) {
 					argv[i][c] = '/';
@@ -99,10 +99,10 @@ int mkdir(int argc, char* argv[])
 			}
 		}
 		if (!create_file(DIR_TYPE, now_dir_id, &argv[i][c + 1])) {
-			if (c!=-1) {
+			if (c != -1) {
 				argv[i][c] = '/';
 			}
-			printf("mkdir: cannot create directory \'%s\': File exists\n",argv[i]);
+			printf("mkdir: cannot create directory \'%s\': File exists\n", argv[i]);
 		}
 		now_dir_id = temp;
 	}
@@ -167,15 +167,178 @@ int rm(int argc, char* argv[])
 			if (id == -1) {
 				printf("rm: %s: No such file or directory\n", &argv[i][c + 1]);
 			} else {
-				if (check_remove_id(id,temp)) {
+				if (check_remove_id(id, temp)) {
 					remove_file(id);
 				} else {
 					printf("rm: Can't remove it\n");
 				}
-				
+
 			}
 		}
 		now_dir_id = temp;
 	}
+	return 0;
+}
+
+int mkfl(int argc, char* argv[])
+{
+	int temp = now_dir_id;
+	for (int i = 1; i < argc; ++i) {
+		int c = -1;
+		int size = strlen(argv[i]);
+		for (int j = size - 1; j >= 0; --j) {
+			if (argv[i][j] == '/') {
+				argv[i][j] = '\0';
+				c = j;
+				break;
+
+			}
+		}
+		if (c != -1) {
+			int flag = jump_to(argv[i]);
+			if (flag == 1) {
+				if (c != -1) {
+					argv[i][c] = '/';
+				}
+				printf("mkfl: %s: Not a directory\n", argv[i]);
+				continue;
+			} else if (flag == 2) {
+				if (c != -1) {
+					argv[i][c] = '/';
+				}
+				printf("mkfl: %s: No such file or directory\n", argv[i]);
+				continue;
+			}
+		}
+		if (!create_file(FILE_TYPE, now_dir_id, &argv[i][c + 1])) {
+			if (c != -1) {
+				argv[i][c] = '/';
+			}
+			printf("mkfl: cannot create directory \'%s\': File exists\n", argv[i]);
+		}
+		now_dir_id = temp;
+	}
+	return 0;
+}
+
+int wrfl(int argc, char* argv[])
+{
+	if (argc <= 1) {
+		return 0;
+	}
+	int temp = now_dir_id;
+	int c = -1;
+	int size = strlen(argv[1]);
+	for (int j = size - 1; j >= 0; --j) {
+		if (argv[1][j] == '/') {
+			argv[1][j] = '\0';
+			c = j;
+			break;
+
+		}
+	}
+	if (c != -1) {
+		int flag = jump_to(argv[1]);
+		if (flag == 1) {
+			if (c != -1) {
+				argv[1][c] = '/';
+			}
+			printf("wrfl: %s: Not a directory\n", argv[1]);
+			now_dir_id = temp;
+			return 0;
+		} else if (flag == 2) {
+			if (c != -1) {
+				argv[1][c] = '/';
+			}
+			printf("wrfl: %s: No such file or directory\n", argv[1]);
+			now_dir_id = temp;
+			return 0;
+		}
+	}
+	char info[SECTOR_SIZE];
+	int id = -1;;
+	if (check_file_exist(now_dir_id, &argv[1][c+1], &id) != 1) {
+		if (c != -1) {
+			argv[1][c] = '/';
+		}
+		printf("wrfl: %s: No such file or directory\n", argv[1]);
+		return 0;
+	}
+	clear_file(id);
+	char ch;
+	FILE_HEADER* file = open_file(id, info);
+	if (file->type != FILE_TYPE) {
+		if (c != -1) {
+			argv[1][c] = '/';
+		}
+		printf("wrfl: %s: Is a directory", argv[1]);
+		return 0;
+	}
+	while ((ch = getchar()) != EOF) {
+		write_file(ch, file);
+	}
+	close_file(file);
+	now_dir_id = temp;
+	return 0;
+}
+
+int cat(int argc, char* argv[])
+{
+	if (argc <= 1) {
+		return 0;
+	}
+	int temp = now_dir_id;
+	int c = -1;
+	int size = strlen(argv[1]);
+	for (int j = size - 1; j >= 0; --j) {
+		if (argv[1][j] == '/') {
+			argv[1][j] = '\0';
+			c = j;
+			break;
+
+		}
+	}
+	if (c != -1) {
+		int flag = jump_to(argv[1]);
+		if (flag == 1) {
+			if (c != -1) {
+				argv[1][c] = '/';
+			}
+			printf("wrfl: %s: Not a directory\n", argv[1]);
+			now_dir_id = temp;
+			return 0;
+		} else if (flag == 2) {
+			if (c != -1) {
+				argv[1][c] = '/';
+			}
+			printf("wrfl: %s: No such file or directory\n", argv[1]);
+			now_dir_id = temp;
+			return 0;
+		}
+	}
+	char info[SECTOR_SIZE];
+	int id = -1;;
+	if (check_file_exist(now_dir_id, &argv[1][c + 1], &id) != 1) {
+		if (c != -1) {
+			argv[1][c] = '/';
+		}
+		printf("wrfl: %s: No such file or directory\n", argv[1]);
+		return 0;
+	}
+	clear_file(id);
+	char ch;
+	FILE_HEADER* file = open_file(id, info);
+	if (file->type != FILE_TYPE) {
+		if (c != -1) {
+			argv[1][c] = '/';
+		}
+		printf("wrfl: %s: Is a directory", argv[1]);
+	}
+	int loc = 0;
+	while ((ch = read_file(file, &loc)) != EOF) {
+		printf("%c", ch);
+	}
+	printf("\n");
+	close_file(file);
 	return 0;
 }

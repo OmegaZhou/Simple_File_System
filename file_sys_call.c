@@ -345,3 +345,58 @@ int check_remove_id(int rm_id,int now_id)
 	}
 	return 1;
 }
+
+void clear_file(int id)
+{
+	char info[SECTOR_SIZE];
+	get_data(FILE_SECTOR(id), 1, info);
+	FILE_HEADER* header = (FILE_HEADER*)info;
+	header->used_size = sizeof(FILE_HEADER) + header->name_len + 1;
+	id = header->next_id;
+	header->next_id = -1;
+	while (id != -1) {
+		get_data(id, 1, info);
+		header = (FILE_HEADER*)info;
+		id = header->next_id;
+		clear_file_sector(header->now_id);
+	}
+}
+
+FILE_HEADER* open_file(int id,char* space)
+{
+	get_data(FILE_SECTOR(id), 1, space);
+	return (FILE_HEADER*)space;
+}
+
+void write_file(char c, FILE_HEADER* file)
+{
+	char* temp = (char*)file;
+	int id = file->now_id;
+	if (file->used_size + 1 >= SECTOR_SIZE) {
+		save_data(FILE_SECTOR(id), 1, temp);
+		id=add_file_sector(FILE_TYPE, file->father_id, file->now_id, NAME_START_LOC(temp), file);
+		get_data(FILE_SECTOR(id), 1, temp);
+	}
+	*(temp + file->used_size) = c;
+	++file->used_size;
+}
+int read_file(FILE_HEADER* file, int* loc)
+{
+	int start = sizeof(FILE_HEADER) + file->name_len + 1;
+	char* temp = (char*)file;
+	if (start + *loc >= file->used_size) {
+		if (file->next_id == -1) {
+			return EOF;
+		} else {
+			get_data(FILE_SECTOR(file->next_id), 1, temp);
+		}
+	}
+	temp = DATA_START_LOC(temp, file->name_len);
+	char re = temp[*loc];
+	++(*loc);
+	return re;
+}
+void close_file(FILE_HEADER* file)
+{
+	save_data(FILE_SECTOR(file->now_id), 1, (char*)file);
+}

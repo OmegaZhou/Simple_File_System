@@ -22,6 +22,11 @@ void get_header(FILE_HEADER* i, int id);
 int jump_to(char* location);
 void remove_file(int start_id);
 int check_remove_id(int rm_id, int now_id);
+void clear_file(int id);
+FILE_HEADER* open_file(int id, char* space);
+void write_file(char c, FILE_HEADER* file);
+int read_file(FILE_HEADER* file, int* loc);
+void close_file(FILE_HEADER* file);
 extern int now_dir_id;
 #endif // !FILE_SYS_CALL_H_
 
