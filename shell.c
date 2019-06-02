@@ -43,6 +43,9 @@ void get_command()
 	}
 	int command_table_size = sizeof(command_table) / sizeof(struct Command);
 	for (int i = 0; i < command_table_size; ++i) {
+		if (strcmp("", argv[0]) == 0) {
+			return;
+		}
 		if (strcmp(command_table[i].name, argv[0]) == 0) {
 			command_pointer = command_table[i].func;
 			(*command_pointer)(argc, argv);
