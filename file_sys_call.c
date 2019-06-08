@@ -320,7 +320,7 @@ void remove_file(int start_id)
 	while (id != -1) {
 		get_data(FILE_SECTOR(id), 1, info);
 		FILE_HEADER* header = (FILE_HEADER*)info;
-		if (header->type = DIR_TYPE) {
+		if (header->type == DIR_TYPE) {
 			int* item_id = (int*)DATA_START_LOC(info, header->name_len);
 			int num = get_item_num(header);
 			for (int i = 0; i < num; ++i) {
